@@ -55,6 +55,7 @@ response time, but the service triggering and response giving mechanisms
 #include <chrono>
 #include <condition_variable>
 #include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <functional>
 #include <future>
@@ -107,7 +108,8 @@ enum class CT
 
 enum ERRORS
 {
-USAGE
+NO
+, USAGE
 , CMDLINE_INVALID_PREDEFINED
 , CMDLINE_EXCEPTION
 };
@@ -745,7 +747,7 @@ ContainerFactoryBase(
     KeyGetterBasePtr keys)
     : mMinLen(minLen)
     , mMaxLen(maxLen)
-    , mExpectedLen(maxLen<=minLen ? minLen : mt()%(1+maxLen-minLen)+minLen)
+    , mExpectedLen(maxLen<=minLen ? minLen : (mt()%(1+maxLen-minLen)+minLen))
     , mAutoClear(autoClear)
     , mPartType(partType)
     , mpKeys(keys)
@@ -779,7 +781,7 @@ if(!keys)
     return PartPtr();
 
 auto part{std::make_shared<Part>(mPartType,mSubs,keys->get(mTok))};
-mExpectedLen = mMaxLen<=mMinLen ? mMinLen : mt()%(1+mMaxLen-mMinLen)+mMinLen;
+mExpectedLen=mMaxLen<=mMinLen ? mMinLen : (mt()%(1+mMaxLen-mMinLen)+mMinLen);
 if(mAutoClear)
     mSubs.clear();
 
@@ -1310,10 +1312,14 @@ std::string run()
 {
 auto beg{std::chrono::steady_clock::now()};
 mProd->order(mInts,mDoubles,mStrings);
-    {
-    std::lock_guard lock{muxCvProd};
-    cvProd.notify_one();
-    }
+{
+std::lock_guard lock{muxCvProd};
+cvProd.notify_one();
+}
+{
+std::unique_lock lock{muxCvAsse};
+cvAsse.wait(lock);
+}
 int iCount{};
 int dCount{};
 int sCount{};
@@ -1321,8 +1327,7 @@ std::stringstream ss;
 ss << '{';
 DisNDat<> c("",",");
 std::map<std::string,Part::Type> keys;
-while((iCount<mInts || dCount<mDoubles || sCount<mStrings)
-      && keys.size()<g_substantives.size())
+while((iCount<mInts || dCount<mDoubles || sCount<mStrings))
     {
     auto prod{mProd->get()};
     if(!prod)
@@ -1380,11 +1385,20 @@ int mStrings{};
 };
 
 //------------------------------------------------------------------------------
-void InitProducer(ProducerParams& pp)
+void initProducerKeys(ProducerParams& pp)
 {
 pp.setKeys(g_substantives);
-pp.setKeyMultiplier(26*26*2);
+}
 
+//------------------------------------------------------------------------------
+void initProducerKeysMultiplier(ProducerParams& pp)
+{
+pp.setKeyMultiplier(26*26*2);
+}
+
+//------------------------------------------------------------------------------
+void initProducerValues(ProducerParams& pp)
+{
 pp.addInts({0,1,2,3,4,5,6,7,8,9,});
 pp.addInts({10,11,12,13,14,15,16,17,18,19,});
 pp.addInts({110,111,112,113,114,115,116,117,118,119,});
@@ -1495,15 +1509,24 @@ auto splitz{[&](
     }};
 try
     {
-    const std::set<std::string> KEYS{"-s","-p","-c","-t","-h"};
+    const std::set<std::string> KEYS_1{"-h"};
+    const std::set<std::string> KEYS_2{"-s","-p","-c","-t"};
     std::map<std::string,std::vector<std::string>> candidates;
     for(int i=1; i<argc; ++i)
         {
-        if(KEYS.find(argv[i])!=KEYS.end())
+        if(KEYS_2.find(argv[i])!=KEYS_2.end())
             {
             int j=i+1;
-            if(j<argc && KEYS.find(argv[j])==KEYS.end())
+            if(!strcmp(argv[i],"-h")
+               || (j<argc && KEYS_2.find(argv[j])==KEYS_2.end()))
                 candidates[argv[i]].push_back(argv[j]);
+            }
+        else if(KEYS_1.find(argv[i])!=KEYS_1.end())
+            candidates[argv[i]];
+        else if(argv[i][0]=='-')
+            {
+            usage();
+            return ERRORS::USAGE;
             }
         }
     auto k{candidates.find("-h")};
@@ -1530,7 +1553,6 @@ try
                 return ERRORS::CMDLINE_INVALID_PREDEFINED;
                 }
             }
-
     k=candidates.find("-c");
     if(k!=candidates.end())
         {
@@ -1554,7 +1576,6 @@ try
         std::size_t maxSize{DEFAULT_MAXSIZE};
         std::size_t recirc{DEFAULT_RECIRC};
         std::size_t weigth{DEFAULT_WEIGTH};
-        minSize=maxSize=recirc=weigth=0;
         for(auto ii: k->second)
             {
             std::string key;
@@ -1627,7 +1648,9 @@ return 0;
 std::map<std::string,ProducerParams> initPredefined()
 {
 ProducerParams pp,pp2;
-InitProducer(pp2);
+initProducerKeys(pp2);
+initProducerKeysMultiplier(pp2);
+initProducerValues(pp2);
 
 using f=std::function<void()>;
 static std::map<std::string,f> CONSUMERS{
@@ -1697,10 +1720,11 @@ return ppp;
 
 int main(int argc, char* argv[])
 {
-ProducerParams pp;
 V_Counts counts;
 std::map<std::string,ProducerParams> predefined{initPredefined()};
-if(auto r=parseCmdline(argc,argv,pp,counts,predefined))
+ProducerParams pp{predefined.find("default")->second};
+auto r{parseCmdline(argc,argv,pp,counts,predefined)};
+if(r)
     exit(r);
 
 static const V_Counts defaultCounts{
