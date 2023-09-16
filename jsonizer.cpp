@@ -7,9 +7,9 @@ as a factory for JSON data.
 The logic of the application models a kind of a "parts and products" processing
 factory (or factories).
 
-A Producer thread generates semi random JSON key-value pairs, here called Parts,
-in the fashion of "basename_a":<value> ... "basename_z":<value> where values are
-basic JSON value types of ints, doubles and strings.
+A Producer thread generates semi random JSON key-value pairs, here
+called Parts, in the fashion of "basename_a":<value> ... "basename_zzz":<value>,
+where values are basic JSON value types of ints, doubles and strings.
 
 These Parts get pushed into a queue.
 
@@ -30,17 +30,18 @@ JSON objects, one per Assembly thread.
 The setup enables creating large and complex JSON objects.
 
 The criteria for a complete JSON object is that the count of simple JSON
-key-value pairs equals or exceeds the given parameters. At Assembly thread
-startup, the thread adds the requested amount of simple values to the
-work queue of the Producer. However, these values aren't "earmarked" to that
-particular Assembly thread but instead can be consumed by any other Assembly
-thread as well. As the consuming of the Products consists of simple key-value
-pairs as well as arrays, objects, or multi-dimensional combinations of those,
-an Assembly thread will likely consume more values than it originally fed to
-the work queue, thus potentially starving other Assembly threads, or the
-not-ready Parts (like arrays, which have predetermined min/max ranges
-for their sizes) within the Producer thread. Thus, when an Assembly thread
-can't seem to receive new Products, it feeds some more values to the system.
+compatible values (integers, doubles and strings) equals or exceeds the given
+parameters. At Assembly thread startup, the thread adds the requested amount of
+simple values to the work queue of the Producer. However, these values aren't
+"earmarked" to that particular Assembly thread but instead can be consumed by
+any other Assembly thread as well. As the consuming of the Products consists of
+simple key-value pairs as well as arrays, objects, or multi-dimensional
+combinations of those, an Assembly thread will likely consume more values than
+it originally fed to the work queue, thus potentially starving other Assembly
+threads, or the not-ready Parts (like arrays, which have predetermined min/max
+ranges for their sizes) within the Producer thread. Thus, when an Assembly
+thread can't seem to receive new Products, it feeds some more values to the
+system.
 
 The parametrization of the Producer object greatly affects what kind of
 JSON objects get created.
@@ -70,6 +71,7 @@ response time, but the service triggering and response giving mechanisms
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -237,8 +239,7 @@ auto init{[](auto&&... t)
 
         if constexpr(sizeof...(tail)>0)
             me(me,tail...);
-        }
-    };
+    }};
     impl(impl,t...);
     }
 };
@@ -560,25 +561,6 @@ D_PartPtr mParts;
 };
 
 //------------------------------------------------------------------------------
-struct KeyGetterBase
-{
-using Token=std::size_t;
-
-virtual ~KeyGetterBase() = default;
-virtual std::size_t keyCount(Token) const = 0;
-virtual std::string get(Token) const = 0;
-
-virtual Token reg()
-{
-return 0;
-}
-
-virtual void activate(){}
-};
-
-using KeyGetterBasePtr = std::shared_ptr<KeyGetterBase>;
-
-//------------------------------------------------------------------------------
 template<std::size_t BASE> struct BaseN
 {
 explicit BaseN(char zero)
@@ -616,6 +598,25 @@ private:
 char mZero;
 std::size_t mVal{};
 };
+
+//------------------------------------------------------------------------------
+struct KeyGetterBase
+{
+using Token=std::size_t;
+
+virtual ~KeyGetterBase() = default;
+virtual std::size_t keyCount(Token) const = 0;
+virtual std::string get(Token) const = 0;
+
+virtual Token reg()
+{
+return 0;
+}
+
+virtual void activate(){}
+};
+
+using KeyGetterBasePtr = std::shared_ptr<KeyGetterBase>;
 
 //------------------------------------------------------------------------------
 struct KeyGetter : public KeyGetterBase
@@ -1081,6 +1082,7 @@ for(auto const& i: par.strings())
     mValueFSs.push_back(D_S_Ptr{new D_S{i}});
 
 mKeyGetter=std::make_shared<KeyGetter>(par.keys(),par.keyMultiplier());
+
 init(
      tie2(mKvpFI,mKeyGetter)
     ,tie2(mKvpFD,mKeyGetter)
@@ -1463,9 +1465,9 @@ return results;
 void usage()
 {
 LOG(
-R"(jsonizer Usage:
+R"(jsonizer usage:
 -h      : This help
--s [N]  : Keys multiplier, adds e.g. _a ... _zzz postfix\n
+-s [N]  : Keys multiplier, adds e.g. _a ... _zzz postfix
          Example: -s 52
 -p [key]: Use predefined config
          Currently valid are: default, godbolt, complex
