@@ -1,6 +1,8 @@
 /**
 JSON object factory.
 
+VERSION 1.0
+
 This is a threading and other C++ features demo application that acts
 as a factory for JSON data.
 
@@ -1730,9 +1732,9 @@ if(r)
     exit(r);
 
 static const V_Counts defaultCounts{
-     {100,100,100}
-    ,{80,80,80}
-    ,{200,200,200}
+     {70,70,70}
+    ,{60,60,60}
+    ,{50,50,50}
     ,{40,40,40}
     ,{30,30,30}
     ,{20,20,20}
