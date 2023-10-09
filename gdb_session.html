@@ -1,0 +1,177 @@
+<h1>Cpp Guild: Tools for debugging: gdb</h1>
+
+<p>Tue October 10, 2023 at 14:00-16:00</p>
+
+<h2>Teams</h2>
+
+<p>Teams Meeting, join at:</p>
+
+<pre><code>https://knowit.sharepoint.com/sites/Org-510-internal/SitePages/Competence-Development-Calendar.aspx
+</code></pre>
+
+<h2>Instructions for participants</h2>
+
+<p>The hands-on part with gdb is workable through an ssh connection:</p>
+
+<pre><code>ssh -i cpp-gdb.pem ubuntu@ec2-16-16-63-61.eu-north-1.compute.amazonaws.com
+</code></pre>
+
+<p>We will provide you with the pem key pair:</p>
+
+<pre><code>cpp-gdb.pem
+</code></pre>
+
+<p>in a zip file:</p>
+
+<pre><code>login.zip
+</code></pre>
+
+<p>When you use the key pair in Linux/Mac, please remember to change the file mode:</p>
+
+<pre><code>chmod 400 cpp-gdb.pem
+</code></pre>
+
+<p>and use ssh only after that in your terminal.</p>
+
+<p>In Windows, you may use PowerShell for the ssh connection.</p>
+
+<p>When you have logged in, you are instructed to use a specific one of directories:</p>
+
+<pre><code>user1
+user2
+user3
+...
+</code></pre>
+
+<p>Represent your directory by <em>userX</em>.</p>
+
+<p>Within <em>userX</em>, you can find a git directory where you can find the source code of the exercise:</p>
+
+<pre><code>jsonizer.cpp
+</code></pre>
+
+<p>We will advise you further during the session. Happy gdb'ing!</p>
+
+<h2>About this doc</h2>
+
+<p>This document is Markdown, or HTML rendering of Markdown. The rendering is done with Linux application <em>markdown</em>,
+installable with:</p>
+
+<pre><code>sudo apt install markdown
+</code></pre>
+
+<p>Then:</p>
+
+<pre><code>markdown document.md &gt; document.html
+</code></pre>
+
+<h2>About the session</h2>
+
+<p>There are at least 3 common usage scenarios for the gdb debugger:</p>
+
+<ul>
+<li>run an application in gdb</li>
+<li>attach to a running application</li>
+<li>remote debug.</li>
+</ul>
+
+<p>We shall focus on running the app in gdb. This is the simplest way to introduce the usage of the debugger.</p>
+
+<h2>Building the app</h2>
+
+<p>The system under testing in this session is a reasonably small threaded application in a single source file,
+<em>jsonizer.cpp</em>.</p>
+
+<p>To compile the cpp file, cd into your source directory and use the provided shell script as follows:</p>
+
+<pre><code>./compile17.sh jsonizer
+</code></pre>
+
+<p>To test run the compiled program, use:</p>
+
+<pre><code>./jsonizer
+</code></pre>
+
+<p><strong>Try this out now</strong></p>
+
+<p><em>To keep things simple, let's stay in this source / binary directory.</em></p>
+
+<p>As can be seen, Jsonizer prints some stats to stdout, followed by a set of:</p>
+
+<pre><code>Result: { JSON contents }
+</code></pre>
+
+<h2>The backstory</h2>
+
+<p>Let us define a role for you participants.</p>
+
+<p>Somebody else has created Jsonizer, and it seemed to work fine.
+Except it worked fine only with specific "nice" parametrization. With other kind of parametrization, Jsonizer either
+gets stuck or crashes. Looks like testing wasn't done very thoroughly, if at all.</p>
+
+<p>You shall be the maintainer getting things back on track.</p>
+
+<h2>The SUT</h2>
+
+<p>The Jsonizer creates semi random JSON files. It has command line options for tweaking the output.</p>
+
+<p>Try:</p>
+
+<pre><code>./jsonizer -h
+</code></pre>
+
+<p>to get command line help.</p>
+
+<p>Then try:</p>
+
+<pre><code>./jsonizer -p default
+./jsonizer -p godbolt
+./jsonizer -p complex
+</code></pre>
+
+<p>Things should work fine again, unless you're really unlucky.</p>
+
+<p>Now try:</p>
+
+<pre><code>for i in {1..100}; do ./jsonizer -p complex; done
+</code></pre>
+
+<p>At some point, Jsonizer just freezes. Bumped into a bug, it seems.</p>
+
+<h2>Firing up the debugger</h2>
+
+<p>Start Jsonizer in gdb like so:</p>
+
+<pre><code>gdb --args ./jsonizer -p complex
+</code></pre>
+
+<p>Then type</p>
+
+<pre><code>run
+</code></pre>
+
+<p>to run the app. With bad luck, it might get stuck at the first try, but if not, run again until it does.
+Use <em>up arrow</em> to access the previous commands.</p>
+
+<p>If for some reason the app keeps on succeeding, we shall need to get into more involved command line parametrization.</p>
+
+<p><em>Ctrl-C</em> will get you back to gdb command mode.
+Typing <em>q</em> or <em>quit</em> will exit the debugging session. Just respond <strong>y</strong> to the potential <em>Quit anyway</em> prompt.</p>
+
+<h2>Next steps</h2>
+
+<p>As typing this markdown file takes up time that doesn't really exist, let's continue the session online.</p>
+
+<p>The topics to get covered are at least:</p>
+
+<ul>
+<li>backtrace</li>
+<li>changing stack frame</li>
+<li>(changing) threads</li>
+<li>breakpoints</li>
+<li>watchpoints</li>
+<li>better variable printouts</li>
+<li>a trick or two</li>
+<li>hunting the bug</li>
+<li>fixing the bug.</li>
+</ul>
